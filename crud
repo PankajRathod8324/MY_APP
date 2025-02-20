@@ -1,0 +1,365 @@
+Here's the complete implementation of a User CRUD system in ASP.NET MVC 7 using a layered architecture:
+
+Data Access Layer (DAL)
+
+UserModel.cs
+IUserRepository.cs
+UserRepository.cs
+ApplicationDbContext.cs
+Business Logic Layer (BLL)
+
+IUserService.cs
+UserService.cs
+Presentation Layer (Controller)
+
+UserController.cs
+1. Data Access Layer (DAL)
+UserModel.cs (User Entity)
+csharp
+Copy
+Edit
+using System.ComponentModel.DataAnnotations;
+
+namespace YourNamespace.DAL.Models
+{
+    public class UserModel
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        public string FirstName { get; set; }
+
+        [Required]
+        public string LastName { get; set; }
+
+        [Required, EmailAddress]
+        public string Email { get; set; }
+
+        [Required]
+        public string Password { get; set; } // In production, store hashed passwords
+
+        public string Phone { get; set; }
+    }
+}
+IUserRepository.cs (Repository Interface)
+csharp
+Copy
+Edit
+using System.Collections.Generic;
+using YourNamespace.DAL.Models;
+
+namespace YourNamespace.DAL.Repositories
+{
+    public interface IUserRepository
+    {
+        IEnumerable<UserModel> GetAllUsers();
+        UserModel GetUserById(int id);
+        void AddUser(UserModel user);
+        void UpdateUser(UserModel user);
+        void DeleteUser(int id);
+        void Save();
+    }
+}
+UserRepository.cs (Repository Implementation)
+csharp
+Copy
+Edit
+using System.Collections.Generic;
+using System.Linq;
+using YourNamespace.DAL.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace YourNamespace.DAL.Repositories
+{
+    public class UserRepository : IUserRepository
+    {
+        private readonly ApplicationDbContext _context;
+
+        public UserRepository(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        public IEnumerable<UserModel> GetAllUsers()
+        {
+            return _context.Users.ToList();
+        }
+
+        public UserModel GetUserById(int id)
+        {
+            return _context.Users.Find(id);
+        }
+
+        public void AddUser(UserModel user)
+        {
+            _context.Users.Add(user);
+            Save();
+        }
+
+        public void UpdateUser(UserModel user)
+        {
+            _context.Users.Update(user);
+            Save();
+        }
+
+        public void DeleteUser(int id)
+        {
+            var user = _context.Users.Find(id);
+            if (user != null)
+            {
+                _context.Users.Remove(user);
+                Save();
+            }
+        }
+
+        public void Save()
+        {
+            _context.SaveChanges();
+        }
+    }
+}
+ApplicationDbContext.cs (Database Context)
+csharp
+Copy
+Edit
+using Microsoft.EntityFrameworkCore;
+using YourNamespace.DAL.Models;
+
+namespace YourNamespace.DAL
+{
+    public class ApplicationDbContext : DbContext
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+        {
+        }
+
+        public DbSet<UserModel> Users { get; set; }
+    }
+}
+2. Business Logic Layer (BLL)
+IUserService.cs (Service Interface)
+csharp
+Copy
+Edit
+using System.Collections.Generic;
+using YourNamespace.DAL.Models;
+
+namespace YourNamespace.BLL
+{
+    public interface IUserService
+    {
+        IEnumerable<UserModel> GetAllUsers();
+        UserModel GetUserById(int id);
+        void AddUser(UserModel user);
+        void UpdateUser(UserModel user);
+        void DeleteUser(int id);
+    }
+}
+UserService.cs (Service Implementation)
+csharp
+Copy
+Edit
+using System.Collections.Generic;
+using YourNamespace.DAL.Models;
+using YourNamespace.DAL.Repositories;
+
+namespace YourNamespace.BLL
+{
+    public class UserService : IUserService
+    {
+        private readonly IUserRepository _userRepository;
+
+        public UserService(IUserRepository userRepository)
+        {
+            _userRepository = userRepository;
+        }
+
+        public IEnumerable<UserModel> GetAllUsers()
+        {
+            return _userRepository.GetAllUsers();
+        }
+
+        public UserModel GetUserById(int id)
+        {
+            return _userRepository.GetUserById(id);
+        }
+
+        public void AddUser(UserModel user)
+        {
+            _userRepository.AddUser(user);
+        }
+
+        public void UpdateUser(UserModel user)
+        {
+            _userRepository.UpdateUser(user);
+        }
+
+        public void DeleteUser(int id)
+        {
+            _userRepository.DeleteUser(id);
+        }
+    }
+}
+3. Presentation Layer (Controller)
+UserController.cs
+csharp
+Copy
+Edit
+using Microsoft.AspNetCore.Mvc;
+using YourNamespace.BLL;
+using YourNamespace.DAL.Models;
+
+namespace YourNamespace.Controllers
+{
+    public class UserController : Controller
+    {
+        private readonly IUserService _userService;
+
+        public UserController(IUserService userService)
+        {
+            _userService = userService;
+        }
+
+        public IActionResult Index()
+        {
+            var users = _userService.GetAllUsers();
+            return View(users);
+        }
+
+        public IActionResult Details(int id)
+        {
+            var user = _userService.GetUserById(id);
+            if (user == null)
+            {
+                return NotFound();
+            }
+            return View(user);
+        }
+
+        public IActionResult Create()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Create(UserModel user)
+        {
+            if (ModelState.IsValid)
+            {
+                _userService.AddUser(user);
+                return RedirectToAction(nameof(Index));
+            }
+            return View(user);
+        }
+
+        public IActionResult Edit(int id)
+        {
+            var user = _userService.GetUserById(id);
+            if (user == null)
+            {
+                return NotFound();
+            }
+            return View(user);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Edit(int id, UserModel user)
+        {
+            if (id != user.Id)
+            {
+                return BadRequest();
+            }
+
+            if (ModelState.IsValid)
+            {
+                _userService.UpdateUser(user);
+                return RedirectToAction(nameof(Index));
+            }
+            return View(user);
+        }
+
+        public IActionResult Delete(int id)
+        {
+            var user = _userService.GetUserById(id);
+            if (user == null)
+            {
+                return NotFound();
+            }
+            return View(user);
+        }
+
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public IActionResult DeleteConfirmed(int id)
+        {
+            _userService.DeleteUser(id);
+            return RedirectToAction(nameof(Index));
+        }
+    }
+}
+4. Dependency Injection in Program.cs
+To register services in ASP.NET Core MVC 7, modify Program.cs:
+
+csharp
+Copy
+Edit
+using YourNamespace.BLL;
+using YourNamespace.DAL;
+using YourNamespace.DAL.Repositories;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add Database Context
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register Repositories & Services
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
+
+// Add Controllers
+builder.Services.AddControllersWithViews();
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=User}/{action=Index}/{id?}");
+
+app.Run();
+5. Database Configuration
+Add connection string in appsettings.json:
+json
+Copy
+Edit
+"ConnectionStrings": {
+  "DefaultConnection": "Server=YOUR_SERVER;Database=YourDatabase;Trusted_Connection=True;MultipleActiveResultSets=true"
+}
+Run EF Core Migrations:
+sh
+Copy
+Edit
+dotnet ef migrations add InitialCreate
+dotnet ef database update
+This is a fully functional User CRUD system with layered architecture in ASP.NET Core MVC 7. 🚀 Let me know if you need any modifications! 🎯
+
+
+
+
+
