@@ -1,0 +1,168 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - PizzaShop</title>
+    
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/PizzaShop.styles.css" asp-append-version="true" />
+
+    <style>
+        /* Ensure the dropdown is properly positioned */
+        .dropdown-menu {
+            position: absolute !important;
+            right: 0 !important;
+            left: auto !important;
+            min-width: 150px;
+            z-index: 1050;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg bg-primary position-fixed w-100 z-5">
+            <div class="container-fluid">
+                <div class="d-flex justify-content-between w-100 align-items-center">
+                    <button class="navbar-toggler" type="button" aria-label="Toggle navigation" id="sidebarToggle">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+
+                    <!-- PIZZASHOP Logo and Name in the navbar -->
+                    <div class="d-flex align-items-center justify-content-center">
+                        <img class="me-2" src="~/assest/logos/pizzashop_logo.png" alt="Pizzashop Logo" style="width: 60px;">
+                        <div class="fs-3 fw-bold">PIZZASHOP</div>
+                    </div>
+
+                    <!-- User Profile Dropdown -->
+                    <div class="dropdown">
+                        <a class="nav-link d-flex align-items-center dropdown-toggle" href="#" id="userDropdown"
+                            role="button">
+                            <img src="~/assest/Default_pfp.svg.png" alt="User Image" class="rounded-circle me-2"
+                                style="width: 45px; height: 45px;">
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow p-3" aria-labelledby="userDropdown" data-bs-auto-close="outside">
+                            <!-- Profile Section -->
+                            <li class="d-flex align-items-center p-2 border-bottom">
+                                <img src="~/assest/Default_pfp.svg.png" alt="User Image" class="rounded-circle me-2"
+                                    style="width: 40px; height: 40px;">
+                                <div>
+                                    <p class="mb-0 fw-bold">John Doe</p>
+                                    <small class="text-muted">johndoe@example.com</small>
+                                </div>
+                            </li>
+
+                            <!-- My Profile -->
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center py-2" asp-area="" asp-controller="Home" asp-action="Profile">            
+                                    <i class="fa-solid fa-user me-2"></i> My Profile
+                                </a>
+                            </li>
+
+                            <!-- Change Password -->
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center py-2" asp-area="" asp-controller="Home" asp-action="Changepassword">
+                                    <i class="fa-solid fa-lock me-2"></i> Change Password
+                                </a>
+                            </li>
+
+                            <!-- Logout -->
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center py-2 text-danger" href="#">
+                                    <i class="fa-solid fa-sign-out-alt me-2"></i> Logout
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Sidebar Navigation -->
+    <div class="sidebar mt-5" id="sidebar">
+        <ul class="list-unstyled p-3 m-3">
+            <li class="dashboardicon d-flex justify-content-start align-items-center my-4">
+                <img src="~/assest/dashboard-default.svg" alt="">
+                <a class="ms-2" asp-area="" asp-controller="Home" asp-action="Dashboard">Dashboard</a>
+            </li>
+            <li class="dashboardicon d-flex justify-content-start align-items-center my-4">
+                <img src="~/assest/graph-default.svg" alt="">
+                <a class="ms-2" asp-area="" asp-controller="User" asp-action="Userpage">User</a>
+            </li>
+            <li class="dashboardicon d-flex justify-content-start align-items-center my-4">
+                <img src="~/assest/inbox-default.svg" alt="">
+                <a class="ms-2" href="rolesAndPermissionPage.html">Role and Permission</a>
+            </li>
+            <li class="dashboardicon d-flex justify-content-start align-items-center my-4">
+                <img src="~/assest/clock-default.svg" alt="">
+                <a class="ms-2" asp-area="" asp-controller="" asp-action="Menu">Menu</a>
+            </li>
+            <li class="dashboardicon d-flex justify-content-start align-items-center my-4">
+                <img src="~/assest/user-default.svg" alt="">
+                <a class="ms-2" href="#">Table And Section</a>
+            </li>
+            <li class="dashboardicon d-flex justify-content-start align-items-center my-4">
+                <img src="~/assest/maintenance-default.svg" alt="">
+                <a class="ms-2" href="#">Taxes And Fees</a>
+            </li>
+            <li class="dashboardicon d-flex justify-content-start align-items-center my-4">
+                <img src="~/assest/setting-default.svg" alt="">
+                <a class="ms-2" href="#">Orders</a>
+            </li>
+            <li class="dashboardicon d-flex justify-content-start align-items-center my-4">
+                <img src="~/assest/user-default.svg" alt="">
+                <a class="ms-2" asp-area="" asp-controller="Authentication" asp-action="Loginpage">Customer</a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div>
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2025 - PizzaShop - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        </div>
+    </footer>
+
+    <!-- jQuery -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+
+    <!-- Bootstrap JavaScript -->
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Dropdown Initialization Script -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var dropdownTrigger = document.getElementById("userDropdown");
+            var dropdownMenu = new bootstrap.Dropdown(dropdownTrigger, {
+                autoClose: "outside" // Keeps the dropdown open when clicking inside
+            });
+
+            dropdownTrigger.addEventListener("click", function (event) {
+                event.preventDefault();
+                dropdownMenu.toggle(); // Ensures dropdown toggles properly
+            });
+        });
+    </script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+
+</body>
+
+</html>
