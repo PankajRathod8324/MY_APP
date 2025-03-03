@@ -1,230 +1,414 @@
-Steps to Implement Pagination & Search Filter Smoothly
-1️⃣ Modify DataTables to Enable Server-Side Processing
-2️⃣ Create an API Endpoint in ASP.NET Core MVC to Fetch Data Dynamically
-3️⃣ Integrate jQuery AJAX in userPage.js for Real-time Updates
+Since roles and permissions have a many-to-many relationship, you should create a third table to manage the mapping between roles and permissions. This is the best practice because:
 
-1. Modify DataTables Configuration (userPage.js)
-javascript
+A role can have multiple permissions.
+A permission can be assigned to multiple roles.
+It avoids data duplication and ensures better maintainability.
+Database Schema
+1. Role Table
+sql
 Copy code
-$(document).ready(function () {
-    $('#table').DataTable({
-        "processing": true,
-        "serverSide": true,
-        "ajax": {
-            "url": "/User/GetUsers",  // API to fetch paginated data
-            "type": "GET"
-        },
-        "columns": [
-            { "data": "name" },
-            { "data": "email" },
-            { "data": "phone" },
-            { "data": "role" },
-            { "data": "status", "render": function (data) {
-                return data === "Active" 
-                    ? '<span class="badge badge-success rounded-pill bg-success">Active</span>' 
-                    : '<span class="badge badge-danger rounded-pill bg-danger">Inactive</span>';
-            }},
-            { "data": "id", "render": function (data) {
-                return `<a class="text-black" href="/User/Edit/${data}"><i class="fa-solid fa-marker"></i></a>
-                        <i class="fa-regular fa-trash-can ms-4" onclick="deleteUser(${data})"></i>`;
-            }}
-        ]
-    });
-});
-
-// Function to delete user
-function deleteUser(id) {
-    if (confirm("Are you sure you want to delete this user?")) {
-        $.ajax({
-            url: `/User/Delete/${id}`,
-            type: "DELETE",
-            success: function () {
-                $('#table').DataTable().ajax.reload();
-            }
-        });
-    }
-}
-2. Create API Endpoint in Controller (UserController.cs)
-csharp
+CREATE TABLE roles (
+    role_id SERIAL PRIMARY KEY,
+    role_name VARCHAR(255) UNIQUE NOT NULL
+);
+2. Permission Table
+sql
 Copy code
-using Microsoft.AspNetCore.Mvc;
-using System.Linq;
-using System.Threading.Tasks;
-using YourNamespace.BLL;
-using YourNamespace.DAL;
-using System.Collections.Generic;
-
-public class UserController : Controller
-{
-    private readonly IUserService _userService;
-
-    public UserController(IUserService userService)
-    {
-        _userService = userService;
-    }
-
-    // API for DataTables
-    [HttpGet]
-    public async Task<IActionResult> GetUsers(int draw, int start, int length, string searchValue)
-    {
-        var users = await _userService.GetAllUsersAsync();
-
-        // Filtering
-        if (!string.IsNullOrEmpty(searchValue))
-        {
-            users = users.Where(u => u.Name.Contains(searchValue) || 
-                                     u.Email.Contains(searchValue) ||
-                                     u.Phone.Contains(searchValue)).ToList();
-        }
-
-        // Total records count
-        int totalRecords = users.Count;
-
-        // Pagination
-        var pagedData = users.Skip(start).Take(length).ToList();
-
-        return Json(new
-        {
-            draw,
-            recordsTotal = totalRecords,
-            recordsFiltered = totalRecords,
-            data = pagedData
-        });
-    }
-}
-3. Modify IUserService.cs (Service Layer)
-csharp
+CREATE TABLE permissions (
+    permission_id SERIAL PRIMARY KEY,
+    permission_name VARCHAR(255) UNIQUE NOT NULL
+);
+3. Role-Permission Mapping Table
+sql
 Copy code
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using YourNamespace.DAL;
-
-public interface IUserService
-{
-    Task<List<UserModel>> GetAllUsersAsync();
-}
-4. Modify UserService.cs (Business Logic Layer)
-csharp
+CREATE TABLE role_permissions (
+    role_id INT REFERENCES roles(role_id) ON DELETE CASCADE,
+    permission_id INT REFERENCES permissions(permission_id) ON DELETE CASCADE,
+    can_view BOOLEAN DEFAULT FALSE,
+    can_add_edit BOOLEAN DEFAULT FALSE,
+    can_delete BOOLEAN DEFAULT FALSE,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    modified_by INT,
+    modified_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (role_id, permission_id)
+);
+Why Use a Separate Table?
+Scalability: You can easily manage role-permission assignments.
+Flexibility: You can add/remove permissions for roles without affecting other data.
+Normalization: Avoids redundant data by linking roles and permissions properly.
+Sample Data Inserts
+1. Insert Roles
+sql
 Copy code
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using YourNamespace.DAL;
-using Microsoft.EntityFrameworkCore;
-
-public class UserService : IUserService
-{
-    private readonly IUserRepository _userRepository;
-
-    public UserService(IUserRepository userRepository)
-    {
-        _userRepository = userRepository;
-    }
-
-    public async Task<List<UserModel>> GetAllUsersAsync()
-    {
-        return await _userRepository.GetAllUsersAsync();
-    }
-}
-5. Modify IUserRepository.cs (Data Access Layer)
-csharp
+INSERT INTO roles (role_name) VALUES 
+('Admin'),
+('Manager'),
+('User');
+2. Insert Permissions
+sql
 Copy code
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-public interface IUserRepository
-{
-    Task<List<UserModel>> GetAllUsersAsync();
-}
-6. Modify UserRepository.cs
-csharp
+INSERT INTO permissions (permission_name) VALUES
+('User Page Dashboard'),
+('Role and Permission'),
+('Menu'),
+('Table and Section'),
+('Taxes and Fees'),
+('Orders'),
+('Customer');
+3. Assign Permissions to Roles
+sql
 Copy code
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+INSERT INTO role_permissions (role_id, permission_id, can_view, can_add_edit, can_delete, created_by, modified_by)
+VALUES
+(1, 1, TRUE, TRUE, TRUE, 1, 1),  -- Admin - User Page Dashboard
+(1, 2, TRUE, TRUE, TRUE, 1, 1),  -- Admin - Role and Permission
+(1, 3, TRUE, TRUE, TRUE, 1, 1),  -- Admin - Menu
+(2, 4, TRUE, TRUE, FALSE, 1, 1), -- Manager - Table and Section
+(2, 5, TRUE, TRUE, FALSE, 1, 1), -- Manager - Taxes and Fees
+(3, 6, TRUE, FALSE, FALSE, 1, 1),-- User - Orders
+(3, 7, TRUE, FALSE, FALSE, 1, 1);-- User - Customer
+Conclusion
+✅ Best approach: Use a role_permissions table for mapping.
+✅ Easier management: Assign and modify permissions dynamically.
+✅ Better performance: Efficient queries for permission checks.
 
-public class UserRepository : IUserRepository
-{
-    private readonly ApplicationDbContext _context;
-
-    public UserRepository(ApplicationDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task<List<UserModel>> GetAllUsersAsync()
-    {
-        return await _context.Users.ToListAsync();
-    }
-}
-7. Ensure You Have ApplicationDbContext.cs
-csharp
-Copy code
-using Microsoft.EntityFrameworkCore;
-
-public class ApplicationDbContext : DbContext
-{
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
-
-    public DbSet<UserModel> Users { get; set; }
-}
-8. Modify appsettings.json (Configure Database)
-json
-Copy code
-"ConnectionStrings": {
-    "DefaultConnection": "Server=YOUR_SERVER;Database=YOUR_DB;Trusted_Connection=True;MultipleActiveResultSets=true"
-}
-9. Register Dependencies in Program.cs
-csharp
-Copy code
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IUserService, UserService>();
-
-var app = builder.Build();
-app.UseRouting();
-app.MapControllers();
-app.Run();
-🎯 Summary of Features Implemented
-✔ Server-Side Pagination & Search (Handles large datasets efficiently)
-✔ Optimized Database Calls (Only fetch required records)
-✔ AJAX-Powered DataTables (Enhances User Experience)
-✔ Proper Layered Architecture (DAL → BLL → Controller)
-✔ Efficient Filtering (Search works dynamically)
-✔ Bootstrap UI & Responsive Table
-
-Now, when you load userPage.html, it will fetch paginated data from your ASP.NET backend smoothly! 🚀🔥
-
-Let me know if you need any modifications! 😃
+This structure ensures a scalable and secure role-based access system. Let me know if you need modifications! 🚀
 
 
 
 
 
 You said:
-there is no remaining details that i miss
+so like in perimissionn page there will be shown every perimison no matter if it isfalse
 ChatGPT said:
-Everything is covered! ✅ Here's a quick checklist to ensure smooth functionality:
+Yes! On the permissions page, you should display all permissions for every role, regardless of whether a role has access (TRUE or FALSE).
 
-✅ What We Have Implemented:
-✔ Pagination & Search Filter using DataTables
-✔ Server-Side API for Fetching Users (GetUsers in UserController)
-✔ Repository Pattern for Database Access (UserRepository)
-✔ Business Logic Layer (UserService)
-✔ Entity Framework (ApplicationDbContext) for Database Management
-✔ AJAX Integration in userPage.js to Load Data Dynamically
-✔ Proper Dependency Injection in Program.cs
-✔ Database Connection Configured in appsettings.json
+Expected Behavior:
+List all permissions (from the permissions table).
+Show role-based access (from the role_permissions table).
+Allow toggling permissions (Admin can update can_view, can_add_edit, can_delete).
+SQL Query to Fetch Data
+To get all permissions along with their status (TRUE or FALSE) for a specific role:
 
-❓ Any Missing Details?
-If you have additional filters like status dropdowns, roles, or date filters, those can be added.
-If editing and deleting users needs enhancements, let me know.
-If you need extra validation or error handling, I can refine that too.
-Everything should work smoothly now! 🚀 Let me know if you face any issues. 😃
+sql
+Copy code
+SELECT 
+    p.permission_id, 
+    p.permission_name, 
+    COALESCE(rp.can_view, FALSE) AS can_view, 
+    COALESCE(rp.can_add_edit, FALSE) AS can_add_edit, 
+    COALESCE(rp.can_delete, FALSE) AS can_delete
+FROM permissions p
+LEFT JOIN role_permissions rp ON p.permission_id = rp.permission_id AND rp.role_id = 1; -- Replace with dynamic role_id
+Explanation:
+LEFT JOIN ensures all permissions are listed, even if a role has no explicit entry in role_permissions.
+COALESCE(rp.can_view, FALSE): If no entry exists, it defaults to FALSE instead of NULL.
+Filter by role_id to show permissions for a specific role.
+How It Looks in UI (Table Format)
+Permission Name	Can View	Can Add/Edit	Can Delete
+User Page Dashboard	✅	✅	❌
+Role and Permission	✅	✅	✅
+Menu	✅	✅	✅
+Table and Section	✅	✅	❌
+Taxes and Fees	✅	✅	❌
+Orders	✅	❌	❌
+Customer	✅	❌	❌
+✅ = TRUE, ❌ = FALSE
+
+How to Update Permissions in UI
+Admin sees all permissions and checkboxes (TRUE or FALSE).
+On toggle, update role_permissions table:
+sql
+Copy code
+UPDATE role_permissions
+SET can_view = TRUE, can_add_edit = TRUE, can_delete = FALSE
+WHERE role_id = 1 AND permission_id = 1;
+If no entry exists, insert new row:
+sql
+Copy code
+INSERT INTO role_permissions (role_id, permission_id, can_view, can_add_edit, can_delete, created_by, modified_by)
+VALUES (1, 1, TRUE, TRUE, FALSE, 1, 1)
+ON CONFLICT (role_id, permission_id) 
+DO UPDATE SET can_view = EXCLUDED.can_view, can_add_edit = EXCLUDED.can_add_edit, can_delete = EXCLUDED.can_delete;
+ON CONFLICT (role_id, permission_id) ensures it updates instead of inserting duplicate entries.
+Final Thoughts
+✅ All permissions are visible, even if FALSE.
+✅ Admin can modify access dynamically.
+✅ Database structure remains clean and efficient.
+
+Would you like help with the front-end implementation in React or another framework? 🚀
+
+
+
+
+
+You said:
+now i made 3 table so i have to write diffrent logic right in controller, repository and service and if needed give me that viewmodel also
+
+2/2
+
+ChatGPT said:
+Yes, since you've created three separate tables (roles, permissions, and role_permissions), you need to write different logic in your controller, repository, and service layers to handle role-based permission management.
+
+1️⃣ ViewModel for Role-Permission Management
+A ViewModel helps send structured data from your service to the front-end. You can use it to list permissions for a role.
+
+csharp
+Copy code
+public class RolePermissionViewModel
+{
+    public int PermissionId { get; set; }
+    public string PermissionName { get; set; }
+    public bool CanView { get; set; }
+    public bool CanAddEdit { get; set; }
+    public bool CanDelete { get; set; }
+}
+2️⃣ Repository Layer (Database Queries)
+Interface (IRepository)
+csharp
+Copy code
+public interface IRolePermissionRepository
+{
+    Task<List<RolePermissionViewModel>> GetPermissionsByRoleId(int roleId);
+    Task<bool> UpdateRolePermissions(int roleId, List<RolePermissionViewModel> permissions);
+}
+Implementation (Repository)
+csharp
+Copy code
+public class RolePermissionRepository : IRolePermissionRepository
+{
+    private readonly YourDbContext _context;
+
+    public RolePermissionRepository(YourDbContext context)
+    {
+        _context = context;
+    }
+
+    // Get permissions for a role
+    public async Task<List<RolePermissionViewModel>> GetPermissionsByRoleId(int roleId)
+    {
+        var permissions = await (from p in _context.Permissions
+                                 join rp in _context.RolePermissions
+                                 on new { p.PermissionId, roleId } equals new { rp.PermissionId, rp.RoleId } into joined
+                                 from rp in joined.DefaultIfEmpty()
+                                 select new RolePermissionViewModel
+                                 {
+                                     PermissionId = p.PermissionId,
+                                     PermissionName = p.PermissionName,
+                                     CanView = rp != null && rp.CanView,
+                                     CanAddEdit = rp != null && rp.CanAddEdit,
+                                     CanDelete = rp != null && rp.CanDelete
+                                 }).ToListAsync();
+
+        return permissions;
+    }
+
+    // Update role permissions
+    public async Task<bool> UpdateRolePermissions(int roleId, List<RolePermissionViewModel> permissions)
+    {
+        foreach (var permission in permissions)
+        {
+            var rolePermission = await _context.RolePermissions
+                .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permission.PermissionId);
+
+            if (rolePermission != null)
+            {
+                // Update existing record
+                rolePermission.CanView = permission.CanView;
+                rolePermission.CanAddEdit = permission.CanAddEdit;
+                rolePermission.CanDelete = permission.CanDelete;
+            }
+            else
+            {
+                // Insert new record
+                _context.RolePermissions.Add(new RolePermission
+                {
+                    RoleId = roleId,
+                    PermissionId = permission.PermissionId,
+                    CanView = permission.CanView,
+                    CanAddEdit = permission.CanAddEdit,
+                    CanDelete = permission.CanDelete
+                });
+            }
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+}
+3️⃣ Service Layer (Business Logic)
+Interface (IService)
+csharp
+Copy code
+public interface IRolePermissionService
+{
+    Task<List<RolePermissionViewModel>> GetRolePermissions(int roleId);
+    Task<bool> UpdateRolePermissions(int roleId, List<RolePermissionViewModel> permissions);
+}
+Implementation (Service)
+csharp
+Copy code
+public class RolePermissionService : IRolePermissionService
+{
+    private readonly IRolePermissionRepository _rolePermissionRepository;
+
+    public RolePermissionService(IRolePermissionRepository rolePermissionRepository)
+    {
+        _rolePermissionRepository = rolePermissionRepository;
+    }
+
+    public async Task<List<RolePermissionViewModel>> GetRolePermissions(int roleId)
+    {
+        return await _rolePermissionRepository.GetPermissionsByRoleId(roleId);
+    }
+
+    public async Task<bool> UpdateRolePermissions(int roleId, List<RolePermissionViewModel> permissions)
+    {
+        return await _rolePermissionRepository.UpdateRolePermissions(roleId, permissions);
+    }
+}
+4️⃣ Controller Layer (API Endpoints)
+csharp
+Copy code
+[ApiController]
+[Route("api/[controller]")]
+public class RolePermissionController : ControllerBase
+{
+    private readonly IRolePermissionService _rolePermissionService;
+
+    public RolePermissionController(IRolePermissionService rolePermissionService)
+    {
+        _rolePermissionService = rolePermissionService;
+    }
+
+    // Get permissions for a role
+    [HttpGet("{roleId}")]
+    public async Task<IActionResult> GetPermissions(int roleId)
+    {
+        var permissions = await _rolePermissionService.GetRolePermissions(roleId);
+        return Ok(permissions);
+    }
+
+    // Update permissions for a role
+    [HttpPost("{roleId}")]
+    public async Task<IActionResult> UpdatePermissions(int roleId, [FromBody] List<RolePermissionViewModel> permissions)
+    {
+        var result = await _rolePermissionService.UpdateRolePermissions(roleId, permissions);
+        if (result)
+            return Ok(new { message = "Permissions updated successfully" });
+
+        return BadRequest(new { message = "Failed to update permissions" });
+    }
+}
+Final Thoughts
+✅ Separate Logic for Repository, Service, and Controller
+✅ Efficient Queries Using LEFT JOIN (Shows FALSE when no data exists)
+✅ ViewModel for Clean API Response
+✅ Scalable Role-Based Permission Management
+
+Now, your system supports viewing, updating, and managing permissions dynamically! 🚀
+
+Let me know if you need UI help for this! 😊
+
+
+
+
+
+You said:
+give me scaffold command for 
+ChatGPT said:
+To generate a scaffold for your Role, Permission, and RolePermission models in ASP.NET Core with Entity Framework, use the following commands based on your database context.
+
+1️⃣ Generate Scaffold for a Single Table
+If you want to scaffold individual models:
+
+sh
+Copy code
+dotnet ef dbcontext scaffold "Server=YOUR_SERVER;Database=YOUR_DATABASE;User Id=YOUR_USER;Password=YOUR_PASSWORD;" Microsoft.EntityFrameworkCore.SqlServer -o Models -t roles
+dotnet ef dbcontext scaffold "Server=YOUR_SERVER;Database=YOUR_DATABASE;User Id=YOUR_USER;Password=YOUR_PASSWORD;" Microsoft.EntityFrameworkCore.SqlServer -o Models -t permissions
+dotnet ef dbcontext scaffold "Server=YOUR_SERVER;Database=YOUR_DATABASE;User Id=YOUR_USER;Password=YOUR_PASSWORD;" Microsoft.EntityFrameworkCore.SqlServer -o Models -t role_permissions
+2️⃣ Generate Scaffold for All Tables
+If you want to scaffold all tables in your database:
+
+sh
+Copy code
+dotnet ef dbcontext scaffold "Server=YOUR_SERVER;Database=YOUR_DATABASE;User Id=YOUR_USER;Password=YOUR_PASSWORD;" Microsoft.EntityFrameworkCore.SqlServer -o Models --force
+-o Models → Outputs generated models inside the Models folder.
+--force → Overwrites existing files.
+3️⃣ Generate Controllers with Views (For MVC)
+sh
+Copy code
+dotnet aspnet-codegenerator controller -name RoleController -m Role -dc YourDbContext --relativeFolderPath Controllers --useDefaultLayout
+dotnet aspnet-codegenerator controller -name PermissionController -m Permission -dc YourDbContext --relativeFolderPath Controllers --useDefaultLayout
+dotnet aspnet-codegenerator controller -name RolePermissionController -m RolePermission -dc YourDbContext --relativeFolderPath Controllers --useDefaultLayout
+4️⃣ Generate API Controllers (For Web API)
+sh
+Copy code
+dotnet aspnet-codegenerator controller -name RoleController -m Role -dc YourDbContext --api --relativeFolderPath Controllers
+dotnet aspnet-codegenerator controller -name PermissionController -m Permission -dc YourDbContext --api --relativeFolderPath Controllers
+dotnet aspnet-codegenerator controller -name RolePermissionController -m RolePermission -dc YourDbContext --api --relativeFolderPath Controllers
+--api → Generates API-only controllers (no views).
+5️⃣ Migrate Database (If Needed)
+After scaffolding, run migrations if you haven't created the database:
+
+sh
+Copy code
+dotnet ef migrations add InitialCreate
+dotnet ef database update
+Final Thoughts
+✅ Scaffold Models & Controllers Automatically
+✅ Use --api for API Controllers or Default for MVC
+✅ Use --force to regenerate if needed
+
+Let me know if you need any modifications! 🚀
+
+
+
+
+
+You said:
+using System.Diagnostics;
+
+using System.Security.Claims;
+
+using BLL.Interfaces;
+
+using DAL.Models;
+
+using DAL.ViewModel;
+
+using Microsoft.AspNetCore.Authorization;
+
+using Microsoft.AspNetCore.Mvc;
+
+
+
+namespace PizzaShop.Controllers;
+
+
+
+
+
+public class RoleAndPermissionController : Controller
+
+{
+
+    private readonly IPermissionService _roleService;
+
+
+
+    private readonly IUserService _userService;
+
+    public RoleAndPermissionController(IPermissionService roleService, IUserService userService)
+
+    {
+
+        _roleService = roleService;
+
+        _userService = userService;
+
+    }
 
 
 
@@ -234,9 +418,240 @@ Everything should work smoothly now! 🚀 Let me know if you face any issues. �
 
 
 
+    public IActionResult Permission(int id)
 
-Search
+    {
 
-Reason
 
-ChatGPT can make mistakes. Check important info.
+
+        // var roleid = _roleService.GetRoleIdByRoleName(rolename);
+
+        Console.WriteLine("Role Id : " + id);
+
+        // var permissions = _roleService.GetAllRolesAndPermissions();
+
+        var permissions = _roleService.GetPermissionsByRoleId(id);
+
+        var permissionvm = permissions.Select(p => new PermissionVM
+
+        {
+
+            PermissionName = p.PermissionName,
+
+            PermissionId = p.PermissionId,
+
+            Role = p.RoleId.HasValue ? _userService.GetRoleNameById(p.RoleId.Value) : "No Role",
+
+            CanView = p.CanView,
+
+            CanAddEdit = p.CanAddEdit,
+
+            CanDelete = p.CanDelete
+
+        }).ToList();
+
+
+
+
+
+        // var model =  _roleService.GetPermissionsForRole(id); 
+
+
+
+        // var rolepermission = permissions.Select(p => new RoleandPermissionVM
+
+        // {
+
+        //     Permissions = new List<PermissionVM> { new PermissionVM {   PermissionName = p.PermissionName,
+
+        //                                                                 PermissionId = p.PermissionId,
+
+        //                                                                 CanAddEdit = p.CanAddEdit,
+
+        //                                                                 CanDelete = p.CanDelete,
+
+        //                                                                 CanView = p.CanView } },
+
+        //     RoleId = p.RoleId,
+
+        //     RoleName = p.RoleId.HasValue ? _userService.GetRoleNameById(p.RoleId.Value) : "No Role",
+
+        // }).ToList();
+
+
+
+
+
+
+
+        return View(permissionvm);
+
+
+
+    }
+
+
+
+    [HttpPost]
+
+
+
+    public IActionResult Permission([FromBody] List<PermissionVM> permissions)
+
+    {
+
+        // if (ModelState.IsValid)
+
+        // {
+
+        //     var permission = new Permission
+
+        //     {
+
+        //         PermissionName = model.PermissionName,
+
+        //         PermissionId = model.PermissionId,
+
+        //         RoleId = model.RoleId,
+
+        //         CanView = model.CanView,
+
+        //         CanAddEdit = model.CanAddEdit,
+
+        //         CanDelete = model.CanDelete
+
+        //     };
+
+
+
+        //     // _roleService.UpdatePermission(permission);
+
+
+
+        //     TempData["Message"] = "Permission updated successfully!";
+
+        //     TempData["MessageType"] = "success"; // Types: success, error, warning, info
+
+
+
+        //     return RedirectToAction("Permission", new { id = permission.RoleId });
+
+        // }
+
+        // Console.WriteLine(model.PermissionId);
+
+        Console.WriteLine("HEEJNJKFNJN");
+
+        if (permissions == null || permissions.Count == 0)
+
+        {
+
+            return BadRequest("No permissions received");
+
+        }
+
+
+
+        Console.WriteLine("Updatedjfnldnfledf");
+
+        Console.WriteLine(permissions.Count);
+
+
+
+        _roleService.UpdatePermissions(permissions);
+
+
+
+        TempData["Message"] = "Successfully update permission.";
+
+        TempData["MessageType"] = "success"; // Types: success, error, warning, info
+
+
+
+
+
+
+
+        return View();
+
+
+
+    }
+
+
+
+
+
+
+
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+
+    public IActionResult Error()
+
+    {
+
+        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+
+    }
+
+}  this is my earliar cntroller of permission give me chg in it 
+ChatGPT said:
+Here are the key improvements I made to your RoleAndPermissionController:
+
+Fixed Dependency Name: Changed _roleService to _permissionService for clarity.
+Improved Error Handling: Added try-catch to handle exceptions properly.
+Async Methods: Converted methods to async Task<IActionResult> for better performance.
+Removed Unnecessary Console Logs: Cleaned up redundant Console.WriteLine statements.
+Optimized ViewModel Mapping: Used await to ensure data is fetched asynchronously.
+Fixed POST Method Response: Redirects to Permission view with id.
+Here’s the updated controller:
+
+csharp
+Copy code
+using System.Diagnostics;
+using System.Security.Claims;
+using BLL.Interfaces;
+using DAL.Models;
+using DAL.ViewModel;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace PizzaShop.Controllers
+{
+    public class RoleAndPermissionController : Controller
+    {
+        private readonly IPermissionService _permissionService;
+        private readonly IUserService _userService;
+
+        public RoleAndPermissionController(IPermissionService permissionService, IUserService userService)
+        {
+            _permissionService = permissionService;
+            _userService = userService;
+        }
+
+        // GET: Display permissions for a role
+        public async Task<IActionResult> Permission(int id)
+        {
+            try
+            {
+                Console.WriteLine($"Fetching permissions for Role ID: {id}");
+
+                var permissions = await _permissionService.GetPermissionsByRoleId(id);
+
+                var permissionvm = permissions.Select(p => new PermissionVM
+                {
+                    PermissionName = p.PermissionName,
+                    PermissionId = p.PermissionId,
+                    Role = p.RoleId.HasValue ? _userService.GetRoleNameById(p.RoleId.Value) : "No Role",
+                    CanView = p.CanView,
+                    CanAddEdit = p.CanAddEdit,
+                    CanDelete = p.CanDelete
+                }).ToList();
+
+                return View(permissionvm);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Permission(): {ex.Message}");
+                TempData["Message"] = "Failed to fetch permissions.";
+                TempData
