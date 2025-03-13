@@ -1,12 +1,61 @@
-     MenuModifierGroupVM modifiervm = new MenuModifierGroupVM
-        {
-            menuModifiers = modifieritems,
-            ModifierGroupId = groupId,
-            ModifierGroupName = groupName.ModifierGroupName,
-            itemModifierGroups = (List<ItemModifierGroup>)combinemodifier.Select(modifier => new ItemModifierGroup
-            {
-                MaxSelection = modifier.MaxSelection,
-                MinSelection = modifier.MinSelection
-            }),
-            // UnitName = modifiers.UnitId.HasValue ? _menuService.GetUnitById(modifiers.UnitId.Value) : "No Units"
-        };
+{menuModifierGroups: null, itemModifierGroups: Array(2), modifierIds: null, modifierGroupId: 2, modifierGroupIds: Array(0), …}
+categoryId
+: 
+null
+isDeleted
+: 
+null
+itemModifierGroups
+: 
+(2) [{…}, {…}]
+maxSelection
+: 
+0
+menuModifierGroups
+: 
+null
+menuModifiers
+: 
+(2) [{…}, {…}]
+minSelection
+: 
+0
+modifierDecription
+: 
+null
+modifierGroupDecription
+: 
+null
+modifierGroupId
+: 
+2
+modifierGroupIds
+: 
+[]
+modifierGroupName
+: 
+"Veggies"
+modifierId
+: 
+0
+modifierIds
+: 
+null
+modifierName
+: 
+null
+modifierRate
+: 
+null
+quantity
+: 
+0
+unitId
+: 
+null
+unitName
+: 
+null
+[[Prototype]]
+: 
+Object
