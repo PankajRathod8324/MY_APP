@@ -1,150 +1,91 @@
-@model DAL.ViewModel.ItemModifierVM
+Issues in Your Code
+Array selectedModifierGroupsEdit becomes empty after deleting a modifier.
 
-@if (Model != null)
-{
-    <div class="modifier-group mt-3 p-2 border rounded" data-groupid="@Model.ModifierGroupId" data-itemid="@Model.ItemId">
-        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].ModifierGroupId"
-            value="@Model.ModifierGroupId">
+The issue is likely due to incorrect filtering logic in the delete-group-edit event.
+Newly added modifier group creates duplicate entries.
 
-        <div class="d-flex justify-content-between align-items-center">
-            <h5>@Model.ModifierGroupName</h5>
-            <button type="button" class="btn btn-sm delete-group-edit" data-groupid="@Model.ModifierGroupId">
-                <i class="fa fa-trash"></i>
-            </button>
-        </div>
+This is likely happening because:
+You're not checking if the group already exists before adding it.
+The setTimeout function might be appending the same item multiple times.
+✅ Fix for Delete Issue
+In your delete event:
 
-        <div class="d-flex justify-content-between align-items-center">
-            <select class="form-select min-input" asp-for="MinSelection">
-                @for (int i = 0; i <= 5; i++)
-                {
-                    <option value="@i">@i</option>
-                }
-            </select>
-            <select class="form-select max-input" asp-for="MaxSelection">
-                @for (int i = 0; i <= 10; i++)
-                {
-                    <option value="@i">@i</option>
-                }
-            </select>
-        </div>
+js
+Copy code
+$(document).on("click", ".delete-group-edit", function () {
+    var deleteid = $(this).data('groupid'); // Get the group ID to delete
+    console.log("Deleting Modifier Group ID:", deleteid);
 
-        <ul class="list-unstyled mt-2">
-            @if (Model.MenuModifiers != null && Model.MenuModifiers.Any())
-            {
-                @for (int i = 0; i < Model.MenuModifiers.Count; i++)
-                {
-                    var modifier = Model.MenuModifiers[i];
-                    <li class="d-flex justify-content-between">
-                        <span>• @modifier.ModifierName</span>
-                        <span>₹ @modifier.ModifierRate</span>
+    // Remove the element from the DOM
+    $(this).closest(".modifier-group").remove();
 
-                        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierId"
-                            value="@modifier.ModifierId">
-                        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierName"
-                            value="@modifier.ModifierName">
-                        <input type="hidden" name="MenuModifierGroups[@Model.ModifierGroupId].menuModifiers[@i].ModifierRate"
-                            value="@modifier.ModifierRate">
-                    </li>
-                }
-            }
-            else
-            {
-                <li>No modifiers available.</li>
-            }
-        </ul>
-    </div>
-}
-else
-{
-    <p>No modifier groups available.</p>
-}
+    // **Correct filtering to remove only the selected group**
+    selectedModifierGroupsEdit = selectedModifierGroupsEdit.filter(modifier => 
+        modifier.modifierGroupId !== deleteid
+    );
 
-<script>
-   
-        var selectedModifierGroupsEdit = [];
-        console.log("inside ModifierGroupId Edit List");
+    console.log("Updated Modifier Groups after Delete:", selectedModifierGroupsEdit);
+});
+🔹 Fix Explanation:
 
-        $(".modifier-group").each(function () {
-            var groupId = $(this).data("groupid");
-            var itemId = $(this).data("itemid");
+Used !== instead of != for strict comparison.
+Ensured it correctly filters out the deleted modifier ID.
+✅ Fix for Duplicate Entries When Adding a Modifier Group
+In your change event handler for #modifierGroupDropdown, update:
 
-            console.log(itemId, groupId);
+js
+Copy code
+$("#modifierGroupDropdown").change(function () {
+    var groupId = $(this).val();
 
-            $.ajax({
-                url: '@Url.Action("GetModifiersGroupByItem", "Menu")',
-                type: 'GET',
-                dataType: 'json',
-                data: { groupId: groupId, itemId: itemId },
-                success: function (modifiers) {
-                    console.log("Fetched Modifiers for Group:", groupId, modifiers);
+    if (!groupId) {
+        $("#modifierList").html(""); // Clear list if no group selected
+        return;
+    }
 
-                    modifiers.itemModifierGroups.forEach(modifier => {
-                        // **Check if the modifier is already in the array**
-                        let exists = selectedModifierGroupsEdit.some(existingModifier =>
-                            existingModifier.itemId === modifier.itemId &&
-                            existingModifier.modifierGroupId === modifier.modifierGroupId
-                        );
+    var parentDiv = $("#modifierList");
 
-                        if (!exists) { // **Only push if it doesn't exist**
-                            selectedModifierGroupsEdit.push(modifier);
-                        }
-                    });
+    // **Check if this modifier group is already added**
+    let exists = selectedModifierGroupsEdit.some(modifier => modifier.modifierGroupId == groupId);
 
-                },
-                error: function (xhr, status, error) {
-                    console.error('Error loading modifiers:', xhr.responseText);
-                }
-            });
-        });
+    if (exists) {
+        console.warn("Modifier group already exists in the array, skipping addition.");
+        return;
+    }
 
-        $("#modifierGroupDropdown").change(function () {
-            var groupId = $(this).val();
+    $.ajax({
+        url: '@Url.Action("GetModifiersByGroup", "Menu")',
+        type: 'GET',
+        data: { groupId: groupId },
+        success: function (response) {
+            parentDiv.append(response); // Append new modifier group UI
 
-            if (!groupId) {
-                $("#modifierList").html(""); // Clear list if no group selected
-                return;
-            }
+            // Wait for DOM to update before adding to array
+            setTimeout(() => {
+                var newGroup = parentDiv.find(".modifier-group").last();
 
-            // Find the parent div where the new modifier group will be appended
-            var parentDiv = $("#modifierList");
+                var minSelection = newGroup.find(".min-input").val();
+                var maxSelection = newGroup.find(".max-input").val();
 
-            $.ajax({
-                url: '@Url.Action("GetModifiersByGroup", "Menu")',
-                type: 'GET',
-                data: { groupId: groupId },
-                success: function (response) {
-                    // Append the new modifier group to the UI
-                    parentDiv.append(response);
-                    console.log(selectedModifierGroupsEdit);
-                    // Once the partial view is appended, attach event listeners to min/max dropdowns
-                    setTimeout(() => {
-                        var newGroup = parentDiv.find(".modifier-group").last(); // Get the latest added modifier group
+                selectedModifierGroupsEdit.push({
+                    modifierGroupId: groupId, // Fix key name
+                    minSelection: minSelection,
+                    maxSelection: maxSelection
+                });
 
-                        var minSelection = newGroup.find(".min-input").val();
-                        var maxSelection = newGroup.find(".max-input").val();
+                console.log("Selected Modifier Groups:", selectedModifierGroupsEdit);
+            }, 500);
+        }
+    });
+});
+🔹 Fix Explanation:
 
-                        selectedModifierGroupsEdit.push({
-                            modifiergroupid: groupId,
-                            minSelection: minSelection,
-                            maxSelection: maxSelection
-                        });
+Prevent duplicates by checking selectedModifierGroupsEdit.some(...) before adding a new modifier.
+Ensures unique entries in selectedModifierGroupsEdit before modifying the DOM.
+Correct key names (modifierGroupId) to ensure consistency.
+✅ Final Fix Summary
+✔ Corrected delete filter to retain existing items.
+✔ Prevents duplicate modifier groups in selectedModifierGroupsEdit.
+✔ Ensures selectedModifierGroupsEdit updates correctly after adding/deleting.
 
-                        console.log("Selected Modifier Groups:", selectedModifierGroupsEdit);
-                    }, 500);
-                }
-            });
-        });
-        $(document).on("click", ".delete-group-edit", function () {
-            $(this).closest(".modifier-group").remove();
-            var deleteid = $(this).data('groupid');
-            console.log(deleteid);
-
-            selectedModifierGroupsEdit = selectedModifierGroupsEdit.filter(modifier => modifier.modifierGroupId != deleteid);
-            console.log(selectedModifierGroupsEdit);
-        });
-
-
-
-
-
-</script>
+This should fix the issue of duplicate
