@@ -1,30 +1,151 @@
- var itemvm = new MenuCategoryVM
+: Load the Partial View with AJAX
+Modify your AJAX function to fetch and load the partial view dynamically:
+
+javascript
+Copy code
+function loadEditItem(itemId) {
+    $.ajax({
+        url: `/Menu/EditMenuItem?itemId=${itemId}`,
+        type: 'GET',
+        success: function (data) {
+            console.log("Partial View Loaded:", data);
+
+            $("#editItemContainer").html(data); // Load Partial View into a div
+            $("#editModal").modal("show"); // Show the modal
+
+            // Call function to load modifiers separately
+            loadModifiersForEdit(itemId);
+        },
+        error: function (xhr, status, error) {
+            console.error('Error:', xhr.responseText);
+        }
+    });
+}
+✅ Now the partial view loads correctly and opens inside a modal.
+
+🚀 Step 3: Fetch Modifier Group Details Separately
+Modify your controller to have an endpoint that fetches modifier details dynamically:
+
+csharp
+Copy code
+public IActionResult GetModifiersByGroupId(int modifierGroupId)
+{
+    var modifiers = _menuService.GetModifiersByModifierGroupId(modifierGroupId)
+        .Select(m => new ModifierVM
         {
-            ItemId = item.ItemId,
-            CategoryId = item.CategoryId,
-            ItemName = item.ItemName,
-            ItemtypeId = item.ItemtypeId,
-            Rate = item.Rate,
-            Quantity = item.Quantity,
-            UnitId = item.UnitId,
-            IsAvailable = item.IsAvailable ?? false,
-            TaxDefault = item.TaxDefault,
-            TaxPercentage = item.TaxPercentage,
-            ShortCode = item.ShortCode,
-            Description = item.Description,
-            ModifierGroupId = item.ModifierGroupId,
-            ModifierGroupIds = itemModifiers.Select(m => new ItemModifierVM
-            {
-                ModifierGroupId = m.ModifierGroupId,
-                ModifierGroupName = m.ModifierGroupId != 0 ? _menuService.GetModifierGroupNameById(m.ModifierGroupId) : "No GroupName",
-                MinSelection = m.MinSelection,
-                MaxSelection = m.MaxSelection,
-                MenuModifiers = _menuService.GetModifiersByModifierGroupId(m.ModifierGroupId)
-                    .Select(mod => new ModifierVM
-                    {
-                        ModifierId = mod.ModifierId,
-                        ModifierName = mod.ModifierName,
-                        ModifierRate = (decimal)mod.ModifierRate,
-                    }).ToList()
-            }).ToList()
-        };
+            ModifierId = m.ModifierId,
+            ModifierName = m.ModifierName,
+            ModifierRate = (decimal)m.ModifierRate
+        }).ToList();
+
+    return Json(modifiers);
+}
+🚀 Step 4: Load Modifiers Separately via AJAX
+Modify your JavaScript to fetch modifiers dynamically after the partial view is loaded:
+
+javascript
+Copy code
+function loadModifiersForEdit(itemId) {
+    $(".modifier-group").each(function () {
+        var groupId = $(this).data("group-id");
+        var container = $(this).find(".modifier-list");
+
+        $.ajax({
+            url: `/Menu/GetModifiersByGroupId?modifierGroupId=${groupId}`,
+            type: 'GET',
+            dataType: 'json',
+            success: function (modifiers) {
+                console.log("Fetched Modifiers for Group:", groupId, modifiers);
+
+                if (modifiers.length === 0) {
+                    container.html("<p>No modifiers available</p>");
+                    return;
+                }
+
+                var modifierHtml = "<ul>";
+                modifiers.forEach(mod => {
+                    modifierHtml += `<li>${mod.ModifierName} - ₹${mod.ModifierRate}</li>`;
+                });
+                modifierHtml += "</ul>";
+
+                container.html(modifierHtml); // Append modifiers inside modifier-group
+            },
+            error: function (xhr, status, error) {
+                console.error('Error loading modifiers:', xhr.responseText);
+            }
+        });
+    });
+}
+🚀 Step 5: Modify Your Partial View (_EditItemPV.cshtml)
+Inside your partial view, add a placeholder for modifiers:
+
+html
+Copy code
+@model MenuCategoryVM
+
+<form id="editItemForm">
+    <input type="hidden" name="ItemId" value="@Model.ItemId" />
+
+    <div class="form-group">
+        <label>Item Name</label>
+        <input type="text" name="ItemName" value="@Model.ItemName" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Rate</label>
+        <input type="number" name="Rate" value="@Model.Rate" class="form-control" />
+    </div>
+
+    <div id="modifierList">
+        @foreach (var group in Model.ModifierGroupIds)
+        {
+            <div class="modifier-group border p-2 mt-2" data-group-id="@group.ModifierGroupId">
+                <h5>@group.ModifierGroupName</h5>
+                <div class="modifier-list">Loading...</div> <!-- Placeholder for modifiers -->
+            </div>
+        }
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+</form>
+🚀 Step 6: Submit the Form via AJAX
+Modify your AJAX form submission:
+
+javascript
+Copy code
+$("#editItemContainer").on("submit", "#editItemForm", function (e) {
+    e.preventDefault();
+    console.log("Submitting Edit Item Form");
+
+    var formData = $(this).serializeArray();
+    var formDataObj = {};
+
+    $.each(formData, function (index, field) {
+        formDataObj[field.name] = field.value;
+    });
+
+    $.ajax({
+        url: '/Menu/UpdateMenuItem',
+        type: 'POST',
+        contentType: "application/json",
+        data: JSON.stringify(formDataObj),
+        success: function (response) {
+            alert("Item Updated Successfully!");
+            $("#editModal").modal("hide"); // Close modal
+        },
+        error: function (xhr, status, error) {
+            console.error('Error:', xhr.responseText);
+        }
+    });
+});
+🎯 Final Summary
+✅ Keep Partial View
+EditMenuItem() returns _EditItemPV.cshtml.
+AJAX loads the partial view dynamically.
+Modifiers load separately via another AJAX request.
+✅ Fix Modifier Data Issue
+GetModifiersByGroupId() fetches modifiers dynamically.
+JavaScript updates the modifier list inside the form.
+✅ Submit Form via AJAX
+#editItemForm submits via AJAX and updates the item.
+🚀 Now, your edit feature w
