@@ -1,91 +1,36 @@
-Issues in Your Code
-Array selectedModifierGroupsEdit becomes empty after deleting a modifier.
+System.InvalidOperationException: The model item passed into the ViewDataDictionary is of type 'DAL.ViewModel.MenuModifierGroupVM', but this ViewDataDictionary instance requires a model item of type 'DAL.ViewModel.ItemModifierVM'.
+   at 
 
-The issue is likely due to incorrect filtering logic in the delete-group-edit event.
-Newly added modifier group creates duplicate entries.
+public IActionResult GetModifiersByGroupEdit(int groupId, UserFilterOptions filterOptions)
+    {
+        var modifiers = _menuService.GetModifiersByModifierGroupId(groupId);
+        var groupName = _menuService.GetModifierGroupById(groupId);
+        // var combinemodifier = _menuService.GetItemModifier()
 
-This is likely happening because:
-You're not checking if the group already exists before adding it.
-The setTimeout function might be appending the same item multiple times.
-✅ Fix for Delete Issue
-In your delete event:
+        var modifieritems = modifiers
+           .Select(item => new MenuModifierGroupVM
+           {
+               ModifierGroupId = (int)item.ModifierGroupId,
+               ModifierName = item.ModifierName,
+               ModifierRate = item.ModifierRate,
+               UnitId = item.UnitId,
+               Quantity = item.Quantity,
+               ModifierDecription = item.ModifierDecription,
+               UnitName = item.UnitId.HasValue ? _menuService.GetUnitById(item.UnitId.Value) : "No Unit"
 
-js
-Copy code
-$(document).on("click", ".delete-group-edit", function () {
-    var deleteid = $(this).data('groupid'); // Get the group ID to delete
-    console.log("Deleting Modifier Group ID:", deleteid);
+           }).ToList();
+        MenuModifierGroupVM modifiervm = new MenuModifierGroupVM
+        {
+            menuModifiers = modifieritems,
+            ModifierGroupId = groupId,
+            ModifierGroupName = groupName.ModifierGroupName
 
-    // Remove the element from the DOM
-    $(this).closest(".modifier-group").remove();
 
-    // **Correct filtering to remove only the selected group**
-    selectedModifierGroupsEdit = selectedModifierGroupsEdit.filter(modifier => 
-        modifier.modifierGroupId !== deleteid
-    );
+            // UnitName = modifiers.UnitId.HasValue ? _menuService.GetUnitById(modifiers.UnitId.Value) : "No Units"
+        };
 
-    console.log("Updated Modifier Groups after Delete:", selectedModifierGroupsEdit);
-});
-🔹 Fix Explanation:
 
-Used !== instead of != for strict comparison.
-Ensured it correctly filters out the deleted modifier ID.
-✅ Fix for Duplicate Entries When Adding a Modifier Group
-In your change event handler for #modifierGroupDropdown, update:
-
-js
-Copy code
-$("#modifierGroupDropdown").change(function () {
-    var groupId = $(this).val();
-
-    if (!groupId) {
-        $("#modifierList").html(""); // Clear list if no group selected
-        return;
+        // var groupName = _menuService.GetModifierNameById(groupId, modifiervm);
+        return PartialView("_EditModifierList", modifiervm);
     }
 
-    var parentDiv = $("#modifierList");
-
-    // **Check if this modifier group is already added**
-    let exists = selectedModifierGroupsEdit.some(modifier => modifier.modifierGroupId == groupId);
-
-    if (exists) {
-        console.warn("Modifier group already exists in the array, skipping addition.");
-        return;
-    }
-
-    $.ajax({
-        url: '@Url.Action("GetModifiersByGroup", "Menu")',
-        type: 'GET',
-        data: { groupId: groupId },
-        success: function (response) {
-            parentDiv.append(response); // Append new modifier group UI
-
-            // Wait for DOM to update before adding to array
-            setTimeout(() => {
-                var newGroup = parentDiv.find(".modifier-group").last();
-
-                var minSelection = newGroup.find(".min-input").val();
-                var maxSelection = newGroup.find(".max-input").val();
-
-                selectedModifierGroupsEdit.push({
-                    modifierGroupId: groupId, // Fix key name
-                    minSelection: minSelection,
-                    maxSelection: maxSelection
-                });
-
-                console.log("Selected Modifier Groups:", selectedModifierGroupsEdit);
-            }, 500);
-        }
-    });
-});
-🔹 Fix Explanation:
-
-Prevent duplicates by checking selectedModifierGroupsEdit.some(...) before adding a new modifier.
-Ensures unique entries in selectedModifierGroupsEdit before modifying the DOM.
-Correct key names (modifierGroupId) to ensure consistency.
-✅ Final Fix Summary
-✔ Corrected delete filter to retain existing items.
-✔ Prevents duplicate modifier groups in selectedModifierGroupsEdit.
-✔ Ensures selectedModifierGroupsEdit updates correctly after adding/deleting.
-
-This should fix the issue of duplicate
