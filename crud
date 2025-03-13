@@ -1,61 +1,72 @@
-{menuModifierGroups: null, itemModifierGroups: Array(2), modifierIds: null, modifierGroupId: 2, modifierGroupIds: Array(0), …}
-categoryId
-: 
-null
-isDeleted
-: 
-null
-itemModifierGroups
-: 
-(2) [{…}, {…}]
-maxSelection
-: 
-0
-menuModifierGroups
-: 
-null
-menuModifiers
-: 
-(2) [{…}, {…}]
-minSelection
-: 
-0
-modifierDecription
-: 
-null
-modifierGroupDecription
-: 
-null
-modifierGroupId
-: 
-2
-modifierGroupIds
-: 
-[]
-modifierGroupName
-: 
-"Veggies"
-modifierId
-: 
-0
-modifierIds
-: 
-null
-modifierName
-: 
-null
-modifierRate
-: 
-null
-quantity
-: 
-0
-unitId
-: 
-null
-unitName
-: 
-null
-[[Prototype]]
-: 
-Object
+ $(document).ready(function () {
+        var selectedModifierGroupsEdit = [];
+        console.log("inside ModifierGroupId Edit List");
+        $(".modifier-group").each(function () {
+            var groupId = $(this).data("groupid");
+            var itemId = $(this).data("itemid");
+            var container = $(this).find(".modifier-list");
+            console.log(itemId);
+            console.log(groupId);
+
+            $.ajax({
+                url: '@Url.Action("GetModifiersGroupByItem", "Menu")',
+                type: 'GET',
+                dataType: 'json',
+                data: { groupId: groupId, itemId: itemId },
+                success: function (modifiers) {
+                    console.log("Fetched Modifiers for Group:", groupId, modifiers);
+                    @* selectedModifierGroupsEdit.push({
+                        
+                    }); *@
+
+                        modifiers.itemModifierGroups.forEach(modifier => {
+
+                            selectedModifierGroupsEdit.push(modifier);
+
+                        })
+
+                    console.log(selectedModifierGroupsEdit);
+
+
+
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error loading modifiers:', xhr.responseText);
+                }
+            });
+        });
+
+[
+    {
+        "itemId": 42,
+        "modifierGroupId": 2,
+        "minSelection": 1,
+        "maxSelection": 4,
+        "item": null,
+        "modifierGroup": null
+    },
+    {
+        "itemId": 42,
+        "modifierGroupId": 4,
+        "minSelection": 1,
+        "maxSelection": 4,
+        "item": null,
+        "modifierGroup": null
+    },
+    {
+        "itemId": 42,
+        "modifierGroupId": 2,
+        "minSelection": 1,
+        "maxSelection": 4,
+        "item": null,
+        "modifierGroup": null
+    },
+    {
+        "itemId": 42,
+        "modifierGroupId": 4,
+        "minSelection": 1,
+        "maxSelection": 4,
+        "item": null,
+        "modifierGroup": null
+    }
+]
