@@ -1,72 +1,38 @@
- $(document).ready(function () {
-        var selectedModifierGroupsEdit = [];
-        console.log("inside ModifierGroupId Edit List");
-        $(".modifier-group").each(function () {
-            var groupId = $(this).data("groupid");
-            var itemId = $(this).data("itemid");
-            var container = $(this).find(".modifier-list");
-            console.log(itemId);
-            console.log(groupId);
+$(document).ready(function () {
+    var selectedModifierGroupsEdit = [];
+    console.log("inside ModifierGroupId Edit List");
 
-            $.ajax({
-                url: '@Url.Action("GetModifiersGroupByItem", "Menu")',
-                type: 'GET',
-                dataType: 'json',
-                data: { groupId: groupId, itemId: itemId },
-                success: function (modifiers) {
-                    console.log("Fetched Modifiers for Group:", groupId, modifiers);
-                    @* selectedModifierGroupsEdit.push({
-                        
-                    }); *@
+    $(".modifier-group").each(function () {
+        var groupId = $(this).data("groupid");
+        var itemId = $(this).data("itemid");
 
-                        modifiers.itemModifierGroups.forEach(modifier => {
+        console.log(itemId, groupId);
 
-                            selectedModifierGroupsEdit.push(modifier);
+        $.ajax({
+            url: '@Url.Action("GetModifiersGroupByItem", "Menu")',
+            type: 'GET',
+            dataType: 'json',
+            data: { groupId: groupId, itemId: itemId },
+            success: function (modifiers) {
+                console.log("Fetched Modifiers for Group:", groupId, modifiers);
 
-                        })
+                modifiers.itemModifierGroups.forEach(modifier => {
+                    // **Check if the modifier is already in the array**
+                    let exists = selectedModifierGroupsEdit.some(existingModifier =>
+                        existingModifier.itemId === modifier.itemId &&
+                        existingModifier.modifierGroupId === modifier.modifierGroupId
+                    );
 
-                    console.log(selectedModifierGroupsEdit);
+                    if (!exists) { // **Only push if it doesn't exist**
+                        selectedModifierGroupsEdit.push(modifier);
+                    }
+                });
 
-
-
-                },
-                error: function (xhr, status, error) {
-                    console.error('Error loading modifiers:', xhr.responseText);
-                }
-            });
+                console.log("Updated Modifier Groups:", selectedModifierGroupsEdit);
+            },
+            error: function (xhr, status, error) {
+                console.error('Error loading modifiers:', xhr.responseText);
+            }
         });
-
-[
-    {
-        "itemId": 42,
-        "modifierGroupId": 2,
-        "minSelection": 1,
-        "maxSelection": 4,
-        "item": null,
-        "modifierGroup": null
-    },
-    {
-        "itemId": 42,
-        "modifierGroupId": 4,
-        "minSelection": 1,
-        "maxSelection": 4,
-        "item": null,
-        "modifierGroup": null
-    },
-    {
-        "itemId": 42,
-        "modifierGroupId": 2,
-        "minSelection": 1,
-        "maxSelection": 4,
-        "item": null,
-        "modifierGroup": null
-    },
-    {
-        "itemId": 42,
-        "modifierGroupId": 4,
-        "minSelection": 1,
-        "maxSelection": 4,
-        "item": null,
-        "modifierGroup": null
-    }
-]
+    });
+});
